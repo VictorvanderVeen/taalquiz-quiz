@@ -1,0 +1,768 @@
+<!--
+  ============================================================
+  TAALQUIZ — Stichting Lezen en Schrijven
+  ============================================================
+  
+  GOOGLE SHEETS SETUP:
+  1. Maak een nieuwe Google Sheet aan
+  2. Ga naar Extensions → Apps Script
+  3. Plak onderstaande code:
+
+  function doPost(e) {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = JSON.parse(e.postData.contents);
+    sheet.appendRow([
+      data.timestamp,
+      data.email,
+      data.score,
+      JSON.stringify(data.answers),
+      data.time_spent
+    ]);
+    return ContentService
+      .createTextOutput(JSON.stringify({result: 'success'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  4. Klik op Deploy → New deployment → Web app
+  5. Execute as: Me | Who has access: Anyone
+  6. Kopieer de URL en plak hieronder bij GOOGLE_SCRIPT_URL
+
+  EMBED CODE:
+  <iframe src="https://victorvanderveen.github.io/taalquiz-les/index.html" 
+          width="100%" height="700" frameborder="0"
+          style="border:none;max-width:600px;margin:0 auto;display:block;">
+  </iframe>
+  ============================================================
+-->
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taalquiz — Stichting Lezen en Schrijven</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --white: #FFFFFF;
+    --black: #1D1D1B;
+    --orange: #E87722;
+    --orange-hover: #D46A1C;
+    --orange-light: #FFF3E8;
+    --green: #2E8B57;
+    --green-light: #E8F5EC;
+    --red: #D32F2F;
+    --red-light: #FDECEA;
+    --gray-100: #F7F7F7;
+    --gray-200: #EEEEEE;
+    --gray-400: #999999;
+    --gray-600: #666666;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: 'Fira Sans', sans-serif;
+    background: var(--white);
+    color: var(--black);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .quiz-container {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 24px 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Progress bar ── */
+  .progress-wrap {
+    margin-bottom: 24px;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .progress-wrap.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .progress-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    letter-spacing: 0.02em;
+  }
+  .progress-track {
+    height: 6px;
+    background: var(--gray-200);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--orange);
+    border-radius: 3px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+
+  /* ── Screens ── */
+  .screen {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    animation: fadeSlideIn 0.45s ease-out both;
+  }
+  .screen.active { display: flex; }
+
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Start screen ── */
+  .start-screen {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    padding-top: 40px;
+  }
+  .start-icon {
+    width: 72px;
+    height: 72px;
+    background: var(--orange-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .start-icon svg { width: 36px; height: 36px; color: var(--orange); }
+  .start-title {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .start-subtitle {
+    font-size: 1.15rem;
+    color: var(--gray-600);
+    max-width: 380px;
+  }
+  .start-instruction {
+    font-size: 0.95rem;
+    color: var(--black);
+    background: var(--gray-100);
+    padding: 14px 20px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    max-width: 380px;
+  }
+  .start-duration {
+    font-size: 0.82rem;
+    color: var(--gray-400);
+    margin-top: -4px;
+  }
+
+  /* ── Email input ── */
+  .email-wrap {
+    width: 100%;
+    max-width: 380px;
+  }
+  .email-input {
+    width: 100%;
+    padding: 14px 18px;
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--black);
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .email-input::placeholder {
+    color: var(--gray-400);
+  }
+  .email-input:focus {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px rgba(232,119,34,0.15);
+  }
+  .email-input.error {
+    border-color: var(--red);
+  }
+  .email-error {
+    font-size: 0.82rem;
+    color: var(--red);
+    margin-top: 6px;
+    display: none;
+    text-align: left;
+  }
+  .email-error.visible { display: block; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 36px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background var(--transition), transform 0.15s, box-shadow var(--transition);
+    text-decoration: none;
+    outline-offset: 3px;
+  }
+  .btn:focus-visible {
+    outline: 3px solid var(--orange);
+    outline-offset: 3px;
+  }
+  .btn-primary {
+    background: var(--orange);
+    color: var(--white);
+  }
+  .btn-primary:hover {
+    background: var(--orange-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(232,119,34,0.3);
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-next {
+    padding: 12px 28px;
+    font-size: 0.95rem;
+    margin-top: 16px;
+    align-self: flex-end;
+  }
+
+  /* ── Question screen ── */
+  .question-screen { gap: 20px; }
+  .question-sentence {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    padding: 20px 24px;
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    border-left: 4px solid var(--orange);
+  }
+  .question-prompt {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Answer options ── */
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .option-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 16px 20px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--black);
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--transition), background var(--transition), transform 0.15s;
+    outline-offset: 2px;
+  }
+  .option-btn:focus-visible {
+    outline: 3px solid var(--orange);
+  }
+  .option-btn:not(.answered):hover {
+    border-color: var(--orange);
+    background: var(--orange-light);
+    transform: translateX(4px);
+  }
+  .option-letter {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    flex-shrink: 0;
+    transition: background var(--transition), color var(--transition);
+  }
+  .option-btn.answered { pointer-events: none; cursor: default; }
+  .option-btn.correct {
+    border-color: var(--green);
+    background: var(--green-light);
+  }
+  .option-btn.correct .option-letter {
+    background: var(--green);
+    color: var(--white);
+  }
+  .option-btn.incorrect {
+    border-color: var(--red);
+    background: var(--red-light);
+  }
+  .option-btn.incorrect .option-letter {
+    background: var(--red);
+    color: var(--white);
+  }
+  .option-btn.dimmed {
+    opacity: 0.45;
+  }
+
+  /* ── Feedback ── */
+  .feedback {
+    display: none;
+    padding: 16px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    animation: fadeSlideIn 0.3s ease-out both;
+  }
+  .feedback.visible { display: block; }
+  .feedback.correct-feedback {
+    background: var(--green-light);
+    color: #1B5E20;
+    border-left: 4px solid var(--green);
+  }
+  .feedback.incorrect-feedback {
+    background: var(--red-light);
+    color: #B71C1C;
+    border-left: 4px solid var(--red);
+  }
+  .feedback-icon { font-size: 1.1rem; margin-right: 6px; }
+
+  /* ── End screen ── */
+  .end-screen {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+    padding-top: 32px;
+  }
+  .score-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--orange-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+  .score-number {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--orange);
+    line-height: 1;
+  }
+  .score-label {
+    font-size: 0.78rem;
+    color: var(--orange-hover);
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .end-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .end-message {
+    font-size: 0.95rem;
+    color: var(--gray-600);
+    max-width: 420px;
+    line-height: 1.65;
+  }
+  .end-cta {
+    font-size: 0.92rem;
+    color: var(--black);
+    font-weight: 600;
+    max-width: 400px;
+    line-height: 1.55;
+  }
+  .btn-donate { margin-top: 4px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 480px) {
+    .quiz-container { padding: 16px 16px; }
+    .start-title { font-size: 1.6rem; }
+    .question-sentence { padding: 16px 18px; font-size: 0.97rem; }
+    .option-btn { padding: 14px 16px; font-size: 0.93rem; }
+    .score-circle { width: 100px; height: 100px; }
+    .score-number { font-size: 2rem; }
+    .end-title { font-size: 1.35rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="quiz-container">
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-header">
+      <span class="progress-label" id="progressLabel">Vraag 1 van 10</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- Start Screen -->
+  <div class="screen start-screen active" id="startScreen">
+    <div class="start-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        <line x1="8" y1="7" x2="16" y2="7"/>
+        <line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+    </div>
+    <h1 class="start-title">Taalquiz</h1>
+    <p class="start-subtitle">Test hoe goed je bent in spelling!</p>
+    <p class="start-instruction">Zoek het woord dat verkeerd geschreven is.</p>
+    <div class="email-wrap">
+      <input type="email" class="email-input" id="emailInput" placeholder="Je e-mailadres" aria-label="E-mailadres" autocomplete="email">
+      <p class="email-error" id="emailError">Vul een geldig e-mailadres in.</p>
+    </div>
+    <button class="btn btn-primary" id="startBtn" aria-label="Start de quiz">Start de quiz</button>
+    <p class="start-duration">Duurt ongeveer 4 minuten</p>
+  </div>
+
+  <!-- Question Screen -->
+  <div class="screen question-screen" id="questionScreen">
+    <p class="question-prompt">Zoek de fout in onderstaande zin:</p>
+    <div class="question-sentence" id="questionSentence"></div>
+    <p class="question-prompt" style="text-transform:none; letter-spacing:0; font-size:0.95rem;">Welk woord is fout?</p>
+    <div class="options" id="optionsContainer" role="radiogroup"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="btn btn-primary btn-next" id="nextBtn" style="display:none;">Volgende →</button>
+  </div>
+
+  <!-- End Screen -->
+  <div class="screen end-screen" id="endScreen">
+    <div class="score-circle">
+      <span class="score-number" id="scoreNumber">0</span>
+      <span class="score-label">van 10</span>
+    </div>
+    <h2 class="end-title">Gefeliciteerd!</h2>
+    <p class="end-message" id="endMessage">Je hebt de quiz afgerond.</p>
+    <p class="end-cta">Wil je taal voor iedereen toegankelijk maken? In Nederland heeft 1 op de 5 volwassenen moeite met lezen, schrijven of rekenen. Met jouw bijdrage zorgen we ervoor dat niemand buitengesloten wordt.</p>
+    <a href="https://doneren.lezenenschrijven.nl/" target="_blank" rel="noopener" class="btn btn-primary btn-donate">Word donateur</a>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATIE — Plak hier je Google Apps Script Web App URL
+// ============================================================
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9C31_iXj-IoRPNNeLP85paLwgaZgYL-mHXOSjNz4aV3fD0HQXFdLmcKwrT0fcNMB_5g/exec';
+
+// ============================================================
+// QUIZ DATA
+// ============================================================
+const QUESTIONS = [
+  {
+    sentence: 'Langs de kustlijn zag je een prachtig kleurenpalet van annemonen die zachtjes meedeinden op de golven van de zee.',
+    options: ['kleurenpalet', 'meedeinden', 'annemonen'],
+    correct: 2,
+    explanation: 'annemonen \u2192 dit moet zijn: anemonen.'
+  },
+  {
+    sentence: 'Door steeds nieuwe taken toe te voegen en langzamer te werken, leek hij het concept van tijd rekken tot een ware kunst te verheffen.',
+    options: ['tijd rekken', 'toe te voegen', 'verheffen'],
+    correct: 0,
+    explanation: 'tijd rekken \u2192 dit moet zijn: tijdrekken.'
+  },
+  {
+    sentence: 'Nadat ik de software van mijn computer had bijgewerkt, was mijn systeem eindelijk weer up to date met de nieuwste functies en beveiligingsverbeteringen.',
+    options: ['beveiligingsverbeteringen', 'software', 'up to date'],
+    correct: 2,
+    explanation: 'up to date \u2192 dit moet zijn: up-to-date.'
+  },
+  {
+    sentence: 'Montmartre is een iconische wijk in het 18e arondissement van Parijs, bekend om haar kunstgeschiedenis en het prachtige uitzicht vanaf de heuvel.',
+    options: ['arondissement', 'kunstgeschiedenis', 'haar'],
+    correct: 0,
+    explanation: 'arondissement \u2192 dit moet zijn: arrondissement.'
+  },
+  {
+    sentence: 'In moderne kantoren zijn laptops, smartphones en videobelplatforms essenti\u00eble vormen van communicatie-apparatuur geworden.',
+    options: ['videobelplatforms', 'communicatie-apparatuur', 'essenti\u00eble'],
+    correct: 1,
+    explanation: 'communicatie-apparatuur \u2192 dit moet zijn: communicatieapparatuur.'
+  },
+  {
+    sentence: 'Ze wilde graag een wendbaar en brandstofbesparend voertuig voor dagelijks woonwerkverkeer en koos daarom voor een motor van 125cc.',
+    options: ['brandstofbesparend', 'motor van 125cc', 'woonwerkverkeer'],
+    correct: 2,
+    explanation: 'woonwerkverkeer \u2192 dit moet zijn: woon-werkverkeer (met koppelteken).'
+  },
+  {
+    sentence: 'Als ervaren F16-piloot voerde hij met precisie en snelheid complexe handelingen uit tijdens de luchtshow, waardoor het publiek versteld stond van zijn vliegkunsten.',
+    options: ['F16-piloot', 'precisie', 'vliegkunsten'],
+    correct: 0,
+    explanation: 'F16-piloot \u2192 dit moet zijn: F-16 piloot.'
+  },
+  {
+    sentence: 'Ze werd gecoached door een ervaren mentor die haar begeleidde bij het ontwikkelen van haar leiderschapsvaardigheden en professionele groei.',
+    options: ['leiderschapsvaardigheden', 'gecoached', 'professionele'],
+    correct: 1,
+    explanation: 'gecoached \u2192 dit moet zijn: gecoacht.'
+  },
+  {
+    sentence: 'Als militair moest hij ten alle tijden zijn geweer bij zich hebben.',
+    options: ['militair', 'ten alle tijden', 'bij zich'],
+    correct: 1,
+    explanation: 'ten alle tijden \u2192 dit moet zijn: te allen tijde.'
+  },
+  {
+    sentence: 'We hebben de wedstrijd paardenrennen moeten aflassen.',
+    options: ['wedstrijd', 'paardenrennen', 'aflassen'],
+    correct: 2,
+    explanation: 'aflassen \u2192 dit moet zijn: afgelasten.'
+  }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentQuestion = 0;
+let score = 0;
+let answers = [];
+let startTime = null;
+let userEmail = '';
+
+// ============================================================
+// DOM
+// ============================================================
+const $ = id => document.getElementById(id);
+const startScreen = $('startScreen');
+const questionScreen = $('questionScreen');
+const endScreen = $('endScreen');
+const progressWrap = $('progressWrap');
+const progressLabel = $('progressLabel');
+const progressFill = $('progressFill');
+const questionSentence = $('questionSentence');
+const optionsContainer = $('optionsContainer');
+const feedback = $('feedback');
+const nextBtn = $('nextBtn');
+const startBtn = $('startBtn');
+const emailInput = $('emailInput');
+const emailError = $('emailError');
+
+// ============================================================
+// FUNCTIONS
+// ============================================================
+function showScreen(screen) {
+  [startScreen, questionScreen, endScreen].forEach(s => {
+    s.classList.remove('active');
+    // Force re-animation
+    s.style.animation = 'none';
+    s.offsetHeight; // trigger reflow
+    s.style.animation = '';
+  });
+  screen.classList.add('active');
+}
+
+function updateProgress() {
+  progressLabel.textContent = `Vraag ${currentQuestion + 1} van ${QUESTIONS.length}`;
+  progressFill.style.width = `${((currentQuestion + 1) / QUESTIONS.length) * 100}%`;
+}
+
+function renderQuestion() {
+  const q = QUESTIONS[currentQuestion];
+  questionSentence.textContent = q.sentence;
+  optionsContainer.innerHTML = '';
+  feedback.classList.remove('visible');
+  feedback.className = 'feedback';
+  nextBtn.style.display = 'none';
+
+  const letters = ['A', 'B', 'C'];
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', 'false');
+    btn.setAttribute('aria-label', `Optie ${letters[i]}: ${opt}`);
+    btn.innerHTML = `<span class="option-letter">${letters[i]}</span><span>${opt}</span>`;
+    btn.addEventListener('click', () => handleAnswer(i, btn));
+    optionsContainer.appendChild(btn);
+  });
+
+  updateProgress();
+}
+
+function handleAnswer(index, selectedBtn) {
+  const q = QUESTIONS[currentQuestion];
+  const isCorrect = index === q.correct;
+  const allBtns = optionsContainer.querySelectorAll('.option-btn');
+
+  // Mark all as answered
+  allBtns.forEach((btn, i) => {
+    btn.classList.add('answered');
+    if (i === q.correct) {
+      btn.classList.add('correct');
+    } else if (i === index && !isCorrect) {
+      btn.classList.add('incorrect');
+    } else {
+      btn.classList.add('dimmed');
+    }
+  });
+
+  // Score
+  if (isCorrect) score++;
+
+  // Track answer
+  answers.push({
+    question: currentQuestion + 1,
+    chosen: q.options[index],
+    correct: isCorrect
+  });
+
+  // Feedback
+  if (isCorrect) {
+    feedback.className = 'feedback correct-feedback visible';
+    feedback.innerHTML = '<span class="feedback-icon">✓</span> Goed! Dat klopt.';
+  } else {
+    feedback.className = 'feedback incorrect-feedback visible';
+    feedback.innerHTML = `<span class="feedback-icon">✗</span> Het juiste antwoord is: ${q.explanation}`;
+  }
+
+  // Show next button
+  nextBtn.style.display = 'inline-flex';
+  nextBtn.textContent = currentQuestion < QUESTIONS.length - 1 ? 'Volgende →' : 'Bekijk resultaat →';
+  nextBtn.focus();
+}
+
+function nextQuestion() {
+  currentQuestion++;
+  if (currentQuestion < QUESTIONS.length) {
+    showScreen(questionScreen);
+    renderQuestion();
+  } else {
+    showEndScreen();
+  }
+}
+
+function showEndScreen() {
+  progressWrap.classList.remove('visible');
+  showScreen(endScreen);
+
+  const scoreNum = $('scoreNumber');
+  scoreNum.textContent = score;
+
+  const endMessage = $('endMessage');
+  if (score === 10) {
+    endMessage.textContent = 'Wow, een perfecte score! Je bent een ware taalkenner.';
+  } else if (score >= 7) {
+    endMessage.textContent = `Je had ${score} van de 10 vragen goed. Uitstekend gedaan!`;
+  } else if (score >= 4) {
+    endMessage.textContent = `Je had ${score} van de 10 vragen goed. Niet slecht, maar er is ruimte voor verbetering!`;
+  } else {
+    endMessage.textContent = `Je had ${score} van de 10 vragen goed. Nederlandse spelling is best lastig!`;
+  }
+
+  // Send to Google Sheets
+  sendResults();
+}
+
+function sendResults() {
+  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('PLAK_HIER')) return;
+
+  const endTime = Date.now();
+  const timeSpent = Math.round((endTime - startTime) / 1000);
+
+  const payload = {
+    timestamp: new Date().toISOString(),
+    email: userEmail,
+    score: `${score}/10`,
+    answers: answers,
+    time_spent: timeSpent
+  };
+
+  fetch(GOOGLE_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {
+    // Silently fail — quiz still works without sheet
+  });
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+startBtn.addEventListener('click', () => {
+  const email = emailInput.value.trim();
+  const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  if (!isValid) {
+    emailInput.classList.add('error');
+    emailError.classList.add('visible');
+    emailInput.focus();
+    return;
+  }
+
+  emailInput.classList.remove('error');
+  emailError.classList.remove('visible');
+  userEmail = email;
+  startTime = Date.now();
+  showScreen(questionScreen);
+  progressWrap.classList.add('visible');
+  renderQuestion();
+});
+
+emailInput.addEventListener('input', () => {
+  emailInput.classList.remove('error');
+  emailError.classList.remove('visible');
+});
+
+nextBtn.addEventListener('click', nextQuestion);
+
+// Keyboard support
+document.addEventListener('keydown', (e) => {
+  if (questionScreen.classList.contains('active')) {
+    const btns = optionsContainer.querySelectorAll('.option-btn:not(.answered)');
+    if (e.key === '1' || e.key === 'a' || e.key === 'A') btns[0]?.click();
+    if (e.key === '2' || e.key === 'b' || e.key === 'B') btns[1]?.click();
+    if (e.key === '3' || e.key === 'c' || e.key === 'C') btns[2]?.click();
+    if (e.key === 'Enter' && nextBtn.style.display !== 'none') nextBtn.click();
+  }
+  if (startScreen.classList.contains('active') && e.key === 'Enter') startBtn.click();
+});
+</script>
+
+</body>
+</html>
