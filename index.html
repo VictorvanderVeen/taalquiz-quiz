@@ -3,29 +3,10 @@
   TAALQUIZ — Stichting Lezen en Schrijven
   ============================================================
   
-  GOOGLE SHEETS SETUP:
-  1. Maak een nieuwe Google Sheet aan
-  2. Ga naar Extensions → Apps Script
-  3. Plak onderstaande code:
-
-  function doPost(e) {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var data = JSON.parse(e.postData.contents);
-    sheet.appendRow([
-      data.timestamp,
-      data.email,
-      data.score,
-      JSON.stringify(data.answers),
-      data.time_spent
-    ]);
-    return ContentService
-      .createTextOutput(JSON.stringify({result: 'success'}))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  4. Klik op Deploy → New deployment → Web app
-  5. Execute as: Me | Who has access: Anyone
-  6. Kopieer de URL en plak hieronder bij GOOGLE_SCRIPT_URL
+  OPSLAG — FORMSPREE:
+  Inzendingen (e-mail, score, antwoorden, tijd) gaan naar Formspree.
+  Bekijken/exporteren (CSV): formspree.io → formulier xoevbnny.
+  Ander formulier? Vervang FORMSPREE_ENDPOINT hieronder.
 
   EMBED CODE:
   <iframe src="https://victorvanderveen.github.io/taalquiz-les/index.html" 
@@ -484,9 +465,9 @@
 
 <script>
 // ============================================================
-// CONFIGURATIE — Plak hier je Google Apps Script Web App URL
+// CONFIGURATIE — Formspree-endpoint voor de inzendingen
 // ============================================================
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzWVpBXqa74HCz1-QgHr-ROFq7g_PJOh9yMXaiVvEX8o53hGTtgRMUlLXyS9OiZi9Bf8Q/exec';
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xoevbnny';
 
 // ============================================================
 // QUIZ DATA
@@ -693,31 +674,39 @@ function showEndScreen() {
     endMessage.textContent = `Je had ${score} van de 10 vragen goed. Nederlandse spelling is best lastig!`;
   }
 
-  // Send to Google Sheets
+  // Send to Formspree
   sendResults();
 }
 
 function sendResults() {
-  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('PLAK_HIER')) return;
+  if (!FORMSPREE_ENDPOINT) return;
 
   const endTime = Date.now();
   const timeSpent = Math.round((endTime - startTime) / 1000);
 
+  // Antwoorden als één leesbare regel, zodat de CSV-export van Formspree bruikbaar blijft
+  const answersText = answers
+    .map(a => `${a.question}: ${a.correct ? 'goed' : 'fout'} (${a.chosen})`)
+    .join(' | ');
+
   const payload = {
+    _subject: `Taalquiz: ${score}/10`,
     timestamp: new Date().toISOString(),
     email: userEmail,
     score: `${score}/10`,
-    answers: answers,
+    answers: answersText,
     time_spent: timeSpent
   };
 
-  fetch(GOOGLE_SCRIPT_URL, {
+  fetch(FORMSPREE_ENDPOINT, {
     method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify(payload)
-  }).catch(() => {
-    // Silently fail — quiz still works without sheet
+  }).then(res => {
+    if (!res.ok) console.warn('Taalquiz: opslaan mislukt', res.status);
+  }).catch(err => {
+    // Quiz blijft werken, ook als opslaan mislukt
+    console.warn('Taalquiz: opslaan mislukt', err);
   });
 }
 
