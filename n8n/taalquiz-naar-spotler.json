@@ -1,0 +1,71 @@
+{
+  "name": "Taalquiz Lezen & Schrijven → Spotler Mail+",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taalquiz-lezen-schrijven",
+        "responseMode": "onReceived",
+        "options": {
+          "allowedOrigins": "https://victorvanderveen.github.io"
+        }
+      },
+      "name": "Quiz-inzending",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "taalquiz-lezen-schrijven"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+              "operator": { "type": "string", "operation": "regex" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Geldig e-mailadres?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://restapi.mailplus.nl/integrationservice/contact",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth1Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ update: true, purge: false, contact: { externalId: $json.body.email.trim().toLowerCase(), properties: { email: $json.body.email.trim().toLowerCase(), firstName: ($json.body.voornaam || '').trim() } } }) }}",
+        "options": {}
+      },
+      "name": "Contact naar Spotler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, -100]
+    }
+  ],
+  "connections": {
+    "Quiz-inzending": {
+      "main": [[{ "node": "Geldig e-mailadres?", "type": "main", "index": 0 }]]
+    },
+    "Geldig e-mailadres?": {
+      "main": [[{ "node": "Contact naar Spotler", "type": "main", "index": 0 }], []]
+    }
+  },
+  "settings": {}
+}

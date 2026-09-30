@@ -199,6 +199,29 @@
     text-align: left;
   }
   .email-error.visible { display: block; }
+  .email-input + .email-error + .email-input { margin-top: 10px; }
+
+  /* ── Toestemming ── */
+  .consent {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-top: 14px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--gray-600);
+    text-align: left;
+    cursor: pointer;
+  }
+  .consent input {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    accent-color: var(--orange);
+    cursor: pointer;
+  }
+  .consent a { color: inherit; }
 
   /* ── Buttons ── */
   .btn {
@@ -432,8 +455,14 @@
     <p class="start-subtitle">Test hoe goed je bent in spelling!</p>
     <p class="start-instruction">Zoek het woord dat verkeerd geschreven is.</p>
     <div class="email-wrap">
+      <input type="text" class="email-input" id="nameInput" placeholder="Je voornaam" aria-label="Voornaam" autocomplete="given-name">
+      <p class="email-error" id="nameError">Vul je voornaam in.</p>
       <input type="email" class="email-input" id="emailInput" placeholder="Je e-mailadres" aria-label="E-mailadres" autocomplete="email">
       <p class="email-error" id="emailError">Vul een geldig e-mailadres in.</p>
+      <label class="consent">
+        <input type="checkbox" id="consentInput">
+        <span>Ja, stuur mij af en toe een mail van Stichting Lezen en Schrijven. Afmelden kan altijd. Lees ons <a href="https://www.lezenenschrijven.nl/privacy-en-cookieverklaring" target="_blank" rel="noopener">privacybeleid</a>.</span>
+      </label>
     </div>
     <button class="btn btn-primary" id="startBtn" aria-label="Start de quiz">Start de quiz</button>
     <p class="start-duration">Duurt ongeveer 4 minuten</p>
@@ -468,6 +497,8 @@
 // CONFIGURATIE — Formspree-endpoint voor de inzendingen
 // ============================================================
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xoevbnny';
+// n8n-webhook die deelnemers mét toestemming doorzet naar Spotler (leeg = uit)
+const N8N_WEBHOOK_URL = '';
 
 // ============================================================
 // QUIZ DATA
@@ -477,61 +508,71 @@ const QUESTIONS = [
     sentence: 'Langs de kustlijn zag je een prachtig kleurenpalet van annemonen die zachtjes meedeinden op de golven van de zee.',
     options: ['kleurenpalet', 'meedeinden', 'annemonen'],
     correct: 2,
-    explanation: 'annemonen \u2192 dit moet zijn: anemonen.'
+    explanation: 'annemonen \u2192 dit moet zijn: anemonen.',
+    rule: 'Anemoon schrijf je met één n na de a. Het woord komt van het Griekse <em>anemos</em>, wind.'
   },
   {
     sentence: 'Door steeds nieuwe taken toe te voegen en langzamer te werken, leek hij het concept van tijd rekken tot een ware kunst te verheffen.',
     options: ['tijd rekken', 'toe te voegen', 'verheffen'],
     correct: 0,
-    explanation: 'tijd rekken \u2192 dit moet zijn: tijdrekken.'
+    explanation: 'tijd rekken \u2192 dit moet zijn: tijdrekken.',
+    rule: 'Een zelfstandig naamwoord en een werkwoord die samen één begrip vormen, schrijf je aan elkaar. Net als bij <em>stofzuigen</em>.'
   },
   {
     sentence: 'Nadat ik de software van mijn computer had bijgewerkt, was mijn systeem eindelijk weer up to date met de nieuwste functies en beveiligingsverbeteringen.',
     options: ['beveiligingsverbeteringen', 'software', 'up to date'],
     correct: 2,
-    explanation: 'up to date \u2192 dit moet zijn: up-to-date.'
+    explanation: 'up to date \u2192 dit moet zijn: up-to-date.',
+    rule: 'Deze Engelse uitdrukking krijgt in het Nederlands altijd koppeltekens, ook achter het werkwoord.'
   },
   {
     sentence: 'Montmartre is een iconische wijk in het 18e arondissement van Parijs, bekend om haar kunstgeschiedenis en het prachtige uitzicht vanaf de heuvel.',
     options: ['arondissement', 'kunstgeschiedenis', 'haar'],
     correct: 0,
-    explanation: 'arondissement \u2192 dit moet zijn: arrondissement.'
+    explanation: 'arondissement \u2192 dit moet zijn: arrondissement.',
+    rule: 'Het woord komt uit het Frans en houdt daarom de dubbele r.'
   },
   {
     sentence: 'In moderne kantoren zijn laptops, smartphones en videobelplatforms essenti\u00eble vormen van communicatie-apparatuur geworden.',
     options: ['videobelplatforms', 'communicatie-apparatuur', 'essenti\u00eble'],
     correct: 1,
-    explanation: 'communicatie-apparatuur \u2192 dit moet zijn: communicatieapparatuur.'
+    explanation: 'communicatie-apparatuur \u2192 dit moet zijn: communicatieapparatuur.',
+    rule: 'Samenstellingen schrijf je aan elkaar. Een koppelteken zet je alleen als de klinkers op de grens samen als één klank gelezen kunnen worden, zoals in <em>zee-egel</em>. Bij e + a is dat niet zo.'
   },
   {
     sentence: 'Ze wilde graag een wendbaar en brandstofbesparend voertuig voor dagelijks woonwerkverkeer en koos daarom voor een motor van 125cc.',
     options: ['brandstofbesparend', 'motor van 125cc', 'woonwerkverkeer'],
     correct: 2,
-    explanation: 'woonwerkverkeer \u2192 dit moet zijn: woon-werkverkeer (met koppelteken).'
+    explanation: 'woonwerkverkeer \u2192 dit moet zijn: woon-werkverkeer (met koppelteken).',
+    rule: 'Wonen en werken zijn gelijkwaardige delen. Tussen zulke delen zet je een koppelteken, net als in <em>zuid-noordverbinding</em>.'
   },
   {
     sentence: 'Als ervaren F16-piloot voerde hij met precisie en snelheid complexe handelingen uit tijdens de luchtshow, waardoor het publiek versteld stond van zijn vliegkunsten.',
     options: ['F16-piloot', 'precisie', 'vliegkunsten'],
     correct: 0,
-    explanation: 'F16-piloot \u2192 dit moet zijn: F-16 piloot.'
+    explanation: 'F16-piloot \u2192 dit moet zijn: F-16-piloot.',
+    rule: 'Het vliegtuigtype heet F-16, met koppelteken. Maak je er een samenstelling van, dan komt er nog een koppelteken bij.'
   },
   {
     sentence: 'Ze werd gecoached door een ervaren mentor die haar begeleidde bij het ontwikkelen van haar leiderschapsvaardigheden en professionele groei.',
     options: ['leiderschapsvaardigheden', 'gecoached', 'professionele'],
     correct: 1,
-    explanation: 'gecoached \u2192 dit moet zijn: gecoacht.'
+    explanation: 'gecoached \u2192 dit moet zijn: gecoacht.',
+    rule: 'Engelse werkwoorden vervoeg je als Nederlandse. De stam <em>coach</em> eindigt op een stemloze klank (tsj), dus volgens \'t kofschip krijgt het voltooid deelwoord een t.'
   },
   {
     sentence: 'Als militair moest hij ten alle tijden zijn geweer bij zich hebben.',
     options: ['militair', 'ten alle tijden', 'bij zich'],
     correct: 1,
-    explanation: 'ten alle tijden \u2192 dit moet zijn: te allen tijde.'
+    explanation: 'ten alle tijden \u2192 dit moet zijn: te allen tijde.',
+    rule: 'Dit is een vaste uitdrukking met een oude naamval. <em>Ten alle tijden</em> is een veelgemaakte mengvorm.'
   },
   {
     sentence: 'We hebben de wedstrijd paardenrennen moeten aflassen.',
     options: ['wedstrijd', 'paardenrennen', 'aflassen'],
     correct: 2,
-    explanation: 'aflassen \u2192 dit moet zijn: afgelasten.'
+    explanation: 'aflassen \u2192 dit moet zijn: afgelasten.',
+    rule: 'Het werkwoord is <em>gelasten</em> (bevelen) met <em>af</em> ervoor. <em>Lassen</em> is metaal aan elkaar smelten.'
   }
 ];
 
@@ -543,6 +584,8 @@ let score = 0;
 let answers = [];
 let startTime = null;
 let userEmail = '';
+let userName = '';
+let userConsent = false;
 
 // ============================================================
 // DOM
@@ -561,6 +604,9 @@ const nextBtn = $('nextBtn');
 const startBtn = $('startBtn');
 const emailInput = $('emailInput');
 const emailError = $('emailError');
+const nameInput = $('nameInput');
+const nameError = $('nameError');
+const consentInput = $('consentInput');
 
 // ============================================================
 // FUNCTIONS
@@ -634,10 +680,10 @@ function handleAnswer(index, selectedBtn) {
   // Feedback
   if (isCorrect) {
     feedback.className = 'feedback correct-feedback visible';
-    feedback.innerHTML = '<span class="feedback-icon">✓</span> Goed! Dat klopt.';
+    feedback.innerHTML = `<span class="feedback-icon">✓</span> Goed! ${q.explanation}<br>${q.rule}`;
   } else {
     feedback.className = 'feedback incorrect-feedback visible';
-    feedback.innerHTML = `<span class="feedback-icon">✗</span> Het juiste antwoord is: ${q.explanation}`;
+    feedback.innerHTML = `<span class="feedback-icon">✗</span> Het juiste antwoord is: ${q.explanation}<br>${q.rule}`;
   }
 
   // Show next button
@@ -678,9 +724,20 @@ function showEndScreen() {
   sendResults();
 }
 
-function sendResults() {
-  if (!FORMSPREE_ENDPOINT) return;
+function postJSON(url, payload) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(res => {
+    if (!res.ok) console.warn('Taalquiz: versturen mislukt', url, res.status);
+  }).catch(err => {
+    // Quiz blijft werken, ook als versturen mislukt
+    console.warn('Taalquiz: versturen mislukt', url, err);
+  });
+}
 
+function sendResults() {
   const endTime = Date.now();
   const timeSpent = Math.round((endTime - startTime) / 1000);
 
@@ -692,41 +749,46 @@ function sendResults() {
   const payload = {
     _subject: `Taalquiz: ${score}/10`,
     timestamp: new Date().toISOString(),
+    voornaam: userName,
     email: userEmail,
+    toestemming_mail: userConsent ? 'ja' : 'nee',
     score: `${score}/10`,
     answers: answersText,
     time_spent: timeSpent
   };
 
-  fetch(FORMSPREE_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(res => {
-    if (!res.ok) console.warn('Taalquiz: opslaan mislukt', res.status);
-  }).catch(err => {
-    // Quiz blijft werken, ook als opslaan mislukt
-    console.warn('Taalquiz: opslaan mislukt', err);
-  });
+  if (FORMSPREE_ENDPOINT) postJSON(FORMSPREE_ENDPOINT, payload);
+
+  // Alleen wie toestemming gaf, gaat door naar de mailinglijst
+  if (N8N_WEBHOOK_URL && userConsent) {
+    postJSON(N8N_WEBHOOK_URL, {
+      voornaam: userName,
+      email: userEmail,
+      score: score
+    });
+  }
 }
 
 // ============================================================
 // EVENT LISTENERS
 // ============================================================
 startBtn.addEventListener('click', () => {
+  const name = nameInput.value.trim();
   const email = emailInput.value.trim();
-  const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const nameValid = name.length > 0;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  if (!isValid) {
-    emailInput.classList.add('error');
-    emailError.classList.add('visible');
-    emailInput.focus();
-    return;
-  }
+  nameInput.classList.toggle('error', !nameValid);
+  nameError.classList.toggle('visible', !nameValid);
+  emailInput.classList.toggle('error', !emailValid);
+  emailError.classList.toggle('visible', !emailValid);
 
-  emailInput.classList.remove('error');
-  emailError.classList.remove('visible');
+  if (!nameValid) { nameInput.focus(); return; }
+  if (!emailValid) { emailInput.focus(); return; }
+
+  userName = name;
   userEmail = email;
+  userConsent = consentInput.checked;
   startTime = Date.now();
   showScreen(questionScreen);
   progressWrap.classList.add('visible');
@@ -736,6 +798,11 @@ startBtn.addEventListener('click', () => {
 emailInput.addEventListener('input', () => {
   emailInput.classList.remove('error');
   emailError.classList.remove('visible');
+});
+
+nameInput.addEventListener('input', () => {
+  nameInput.classList.remove('error');
+  nameError.classList.remove('visible');
 });
 
 nextBtn.addEventListener('click', nextQuestion);
