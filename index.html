@@ -5,8 +5,8 @@
   
   OPSLAG — POCKETBASE:
   Inzendingen (e-mail, score, antwoorden, tijd) gaan naar de collectie
-  taalquiz_inzendingen op db.vdveen.online. Bekijken: db.vdveen.online/_/
-  Exporteren (JSON): node export-inzendingen.mjs taalquiz_inzendingen
+  Lezen_Schrijven_taalquiz_inzendingen op db.vdveen.online. Bekijken: db.vdveen.online/_/
+  Exporteren (JSON): node export-inzendingen.mjs Lezen_Schrijven_taalquiz_inzendingen
 
   Tijdelijk gaat elke inzending ook nog naar Formspree (formulier xoevbnny).
   Maak FORMSPREE_ENDPOINT leeg zodra het Formspree-abonnement stopt.
@@ -499,7 +499,8 @@
 // ============================================================
 // CONFIGURATIE — waar de inzendingen naartoe gaan (leeg = uit)
 // ============================================================
-const POCKETBASE_ENDPOINT = 'https://db.vdveen.online/api/collections/taalquiz_inzendingen/records';
+// Het id van de collectie in plaats van de naam: hernoemen in het beheerscherm breekt het insturen dan niet
+const POCKETBASE_ENDPOINT = 'https://db.vdveen.online/api/collections/pbc_2564414573/records';
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xoevbnny';
 // n8n-webhook die deelnemers mét toestemming doorzet naar Spotler (leeg = uit)
 const N8N_WEBHOOK_URL = '';
