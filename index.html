@@ -3,10 +3,13 @@
   TAALQUIZ — Stichting Lezen en Schrijven
   ============================================================
   
-  OPSLAG — FORMSPREE:
-  Inzendingen (e-mail, score, antwoorden, tijd) gaan naar Formspree.
-  Bekijken/exporteren (CSV): formspree.io → formulier xoevbnny.
-  Ander formulier? Vervang FORMSPREE_ENDPOINT hieronder.
+  OPSLAG — POCKETBASE:
+  Inzendingen (e-mail, score, antwoorden, tijd) gaan naar de collectie
+  taalquiz_inzendingen op db.vdveen.online. Bekijken: db.vdveen.online/_/
+  Exporteren (JSON): node export-inzendingen.mjs taalquiz_inzendingen
+
+  Tijdelijk gaat elke inzending ook nog naar Formspree (formulier xoevbnny).
+  Maak FORMSPREE_ENDPOINT leeg zodra het Formspree-abonnement stopt.
 
   EMBED CODE:
   <iframe src="https://victorvanderveen.github.io/taalquiz-les/index.html" 
@@ -494,8 +497,9 @@
 
 <script>
 // ============================================================
-// CONFIGURATIE — Formspree-endpoint voor de inzendingen
+// CONFIGURATIE — waar de inzendingen naartoe gaan (leeg = uit)
 // ============================================================
+const POCKETBASE_ENDPOINT = 'https://db.vdveen.online/api/collections/taalquiz_inzendingen/records';
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xoevbnny';
 // n8n-webhook die deelnemers mét toestemming doorzet naar Spotler (leeg = uit)
 const N8N_WEBHOOK_URL = '';
@@ -720,7 +724,6 @@ function showEndScreen() {
     endMessage.textContent = `Je had ${score} van de 10 vragen goed. Nederlandse spelling is best lastig!`;
   }
 
-  // Send to Formspree
   sendResults();
 }
 
@@ -758,6 +761,18 @@ function sendResults() {
   };
 
   if (FORMSPREE_ENDPOINT) postJSON(FORMSPREE_ENDPOINT, payload);
+
+  // PocketBase krijgt de antwoorden per vraag, zodat de JSON-export direct te analyseren is
+  if (POCKETBASE_ENDPOINT) {
+    postJSON(POCKETBASE_ENDPOINT, {
+      voornaam: userName,
+      email: userEmail,
+      toestemming_mail: userConsent,
+      score: score,
+      antwoorden: answers,
+      time_spent: timeSpent
+    });
+  }
 
   // Alleen wie toestemming gaf, gaat door naar de mailinglijst
   if (N8N_WEBHOOK_URL && userConsent) {
