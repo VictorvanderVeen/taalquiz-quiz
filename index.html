@@ -266,6 +266,7 @@
 
   /* ── Question screen ── */
   .question-screen { gap: 20px; }
+  .nobreak { white-space: nowrap; }
   .question-sentence {
     font-size: 1.05rem;
     line-height: 1.7;
@@ -632,9 +633,15 @@ function updateProgress() {
   progressFill.style.width = `${((currentQuestion + 1) / QUESTIONS.length) * 100}%`;
 }
 
+// Woorden met een koppelteken blijven op één regel. Anders lijkt het koppelteken
+// aan het eind van een regel een afbreekstreepje en is de spelfout niet te zien.
+function keepHyphensTogether(html) {
+  return html.replace(/[^\s<>]*-[^\s<>]*/g, '<span class="nobreak">$&</span>');
+}
+
 function renderQuestion() {
   const q = QUESTIONS[currentQuestion];
-  questionSentence.textContent = q.sentence;
+  questionSentence.innerHTML = keepHyphensTogether(q.sentence);
   optionsContainer.innerHTML = '';
   feedback.classList.remove('visible');
   feedback.className = 'feedback';
@@ -647,7 +654,7 @@ function renderQuestion() {
     btn.setAttribute('role', 'radio');
     btn.setAttribute('aria-checked', 'false');
     btn.setAttribute('aria-label', `Optie ${letters[i]}: ${opt}`);
-    btn.innerHTML = `<span class="option-letter">${letters[i]}</span><span>${opt}</span>`;
+    btn.innerHTML = `<span class="option-letter">${letters[i]}</span><span>${keepHyphensTogether(opt)}</span>`;
     btn.addEventListener('click', () => handleAnswer(i, btn));
     optionsContainer.appendChild(btn);
   });
@@ -685,10 +692,10 @@ function handleAnswer(index, selectedBtn) {
   // Feedback
   if (isCorrect) {
     feedback.className = 'feedback correct-feedback visible';
-    feedback.innerHTML = `<span class="feedback-icon">✓</span> Goed! ${q.explanation}<br>${q.rule}`;
+    feedback.innerHTML = `<span class="feedback-icon">✓</span> Goed! ${keepHyphensTogether(q.explanation + '<br>' + q.rule)}`;
   } else {
     feedback.className = 'feedback incorrect-feedback visible';
-    feedback.innerHTML = `<span class="feedback-icon">✗</span> Het juiste antwoord is: ${q.explanation}<br>${q.rule}`;
+    feedback.innerHTML = `<span class="feedback-icon">✗</span> Het juiste antwoord is: ${keepHyphensTogether(q.explanation + '<br>' + q.rule)}`;
   }
 
   // Show next button
