@@ -457,7 +457,7 @@
     </div>
     <h1 class="start-title">Taalquiz</h1>
     <p class="start-subtitle">Test hoe goed je bent in spelling!</p>
-    <p class="start-instruction">Zoek het woord dat verkeerd geschreven is.</p>
+    <p class="start-instruction">Zoek het woord dat verkeerd geschreven is. Je uitslag krijg je per mail.</p>
     <div class="email-wrap">
       <input type="text" class="email-input" id="nameInput" placeholder="Je voornaam" aria-label="Voornaam" autocomplete="given-name">
       <p class="email-error" id="nameError">Vul je voornaam in.</p>
@@ -485,11 +485,13 @@
   <!-- End Screen -->
   <div class="screen end-screen" id="endScreen">
     <div class="score-circle">
-      <span class="score-number" id="scoreNumber">0</span>
-      <span class="score-label">van 10</span>
+      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--orange)">
+        <rect x="2" y="4" width="20" height="16" rx="2"/>
+        <path d="m22 7-10 6L2 7"/>
+      </svg>
     </div>
-    <h2 class="end-title">Gefeliciteerd!</h2>
-    <p class="end-message" id="endMessage">Je hebt de quiz afgerond.</p>
+    <h2 class="end-title">Bedankt voor het meedoen!</h2>
+    <p class="end-message" id="endMessage">Je uitslag staat in je mail.</p>
     <p class="end-cta">Wil je taal voor iedereen toegankelijk maken? In Nederland heeft 1 op de 5 volwassenen moeite met lezen, schrijven of rekenen. Met jouw bijdrage zorgen we ervoor dat niemand buitengesloten wordt.</p>
     <a href="https://doneren.lezenenschrijven.nl/" target="_blank" rel="noopener" class="btn btn-primary btn-donate">Word donateur</a>
   </div>
@@ -718,19 +720,8 @@ function showEndScreen() {
   progressWrap.classList.remove('visible');
   showScreen(endScreen);
 
-  const scoreNum = $('scoreNumber');
-  scoreNum.textContent = score;
-
-  const endMessage = $('endMessage');
-  if (score === 10) {
-    endMessage.textContent = 'Wow, een perfecte score! Je bent een ware taalkenner.';
-  } else if (score >= 7) {
-    endMessage.textContent = `Je had ${score} van de 10 vragen goed. Uitstekend gedaan!`;
-  } else if (score >= 4) {
-    endMessage.textContent = `Je had ${score} van de 10 vragen goed. Niet slecht, maar er is ruimte voor verbetering!`;
-  } else {
-    endMessage.textContent = `Je had ${score} van de 10 vragen goed. Nederlandse spelling is best lastig!`;
-  }
+  // De score staat niet op het scherm: die mailt PocketBase (pb_hooks/taalquiz_mail.js)
+  $('endMessage').textContent = `We hebben je uitslag gemaild naar ${userEmail}. Zie je hem niet? Kijk dan even in je spam.`;
 
   sendResults();
 }
